@@ -29,9 +29,9 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.AbortableHttpRequest;
 import org.apache.http.client.utils.URIUtils;
 import org.apache.http.config.SocketConfig;
+import org.apache.http.entity.BufferedHttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicHttpEntityEnclosingRequest;
 import org.apache.http.message.BasicHttpRequest;
@@ -108,6 +108,7 @@ public class ProxyServlet extends HttpServlet {
           ProxyServlet.class.getSimpleName() + ".targetUri";
   protected static final String ATTR_TARGET_HOST =
           ProxyServlet.class.getSimpleName() + ".targetHost";
+  private static final String P_IS_SECURED = "isSecured";
 
   /* MISC */
 
@@ -119,6 +120,9 @@ public class ProxyServlet extends HttpServlet {
   protected boolean doPreserveCookies = false;
   protected boolean doHandleRedirects = false;
   protected boolean useSystemProperties = true;
+
+  protected boolean isSecured = false;
+
   protected int connectTimeout = -1;
   protected int readTimeout = -1;
   protected int connectionRequestTimeout = -1;
@@ -205,6 +209,11 @@ public class ProxyServlet extends HttpServlet {
     String useSystemPropertiesString = getConfigParam(P_USESYSTEMPROPERTIES);
     if (useSystemPropertiesString != null) {
       this.useSystemProperties = Boolean.parseBoolean(useSystemPropertiesString);
+    }
+
+    String doIsSecured = getConfigParam(P_IS_SECURED);
+    if(doIsSecured != null) {
+      isSecured = Boolean.parseBoolean(doIsSecured);
     }
 
     initTarget();//sets target*
@@ -393,8 +402,15 @@ public class ProxyServlet extends HttpServlet {
             new BasicHttpEntityEnclosingRequest(method, proxyRequestUri);
     // Add the input entity (streamed)
     //  note: we don't bother ensuring we close the servletInputStream since the container handles it
-    eProxyRequest.setEntity(
-            new InputStreamEntity(servletRequest.getInputStream(), getContentLength(servletRequest)));
+    InputStreamEntity entity = new InputStreamEntity(servletRequest.getInputStream(), getContentLength(servletRequest));
+
+    // https://github.com/mitre/HTTP-Proxy-Servlet/issues/67
+    if ("GET".equals(method) || !isSecured) {
+      eProxyRequest.setEntity(entity);
+    } else {
+      BufferedHttpEntity bufferedHttpEntity = new BufferedHttpEntity(entity);
+      eProxyRequest.setEntity(bufferedHttpEntity);
+    }
     return eProxyRequest;
   }
 

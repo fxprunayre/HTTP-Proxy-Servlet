@@ -61,6 +61,7 @@ public class URITemplateProxyServlet extends ProxyServlet {
 
   protected String targetUriTemplate;//has {name} parts
 
+
   @Override
   protected void initTarget() throws ServletException {
     targetUriTemplate = getConfigParam(P_TARGET_URI);
